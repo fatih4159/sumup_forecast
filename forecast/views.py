@@ -7,6 +7,8 @@ from django.contrib import messages
 from django.contrib.auth import authenticate,login,logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError,transaction
 from django.http import HttpResponse,HttpResponseBadRequest,HttpResponseForbidden
 from django.shortcuts import redirect,render,get_object_or_404
@@ -34,8 +36,14 @@ def register_view(request):
         username=request.POST.get("username","").strip()
         password=request.POST.get("password","")
         name=request.POST.get("company","").strip()
-        if not username or not name or len(password)<8:
-            messages.error(request,"Bitte Benutzername, Unternehmen und Passwort (mindestens 8 Zeichen) angeben.")
+        try:
+            validate_password(password)
+            valid_password=True
+        except ValidationError as exc:
+            valid_password=False
+            messages.error(request," ".join(exc.messages))
+        if not username or not name or not valid_password:
+            messages.error(request,"Bitte gültigen Benutzernamen, Unternehmensnamen und Passwort angeben.")
         elif User.objects.filter(username=username).exists():
             messages.error(request,"Benutzername bereits vergeben.")
         else:
@@ -145,18 +153,20 @@ def import_csv(request):
     except (UnicodeError,ValueError,csv.Error) as exc:
         messages.error(request,f"Import fehlgeschlagen: {exc}")
         return redirect("dashboard")
-    existing=set(SaleRow.objects.filter(tenant=tenant).values_list("fingerprint",flat=True))
-    occurrences=Counter()
-    accepted=[]
-    for row in parsed:
-        fingerprint=row_fingerprint(row)
-        occurrences[fingerprint]+=1
-        key=f"{fingerprint}:{occurrences[fingerprint]}"
-        if key not in existing:
-            accepted.append(SaleRow(tenant=tenant,fingerprint=key,payload=row))
-            existing.add(key)
     with transaction.atomic():
-        SaleRow.objects.bulk_create(accepted,ignore_conflicts=True,batch_size=500)
+        # Lock the tenant row to serialize concurrent imports of the same tenant.
+        Tenant.objects.select_for_update().get(pk=tenant.pk)
+        existing=set(SaleRow.objects.filter(tenant=tenant).values_list("fingerprint",flat=True))
+        occurrences=Counter()
+        accepted=[]
+        for row in parsed:
+            fingerprint=row_fingerprint(row)
+            occurrences[fingerprint]+=1
+            key=f"{fingerprint}:{occurrences[fingerprint]}"
+            if key not in existing:
+                accepted.append(SaleRow(tenant=tenant,fingerprint=key,payload=row))
+                existing.add(key)
+        SaleRow.objects.bulk_create(accepted,batch_size=500)
         imp=DataImport.objects.create(tenant=tenant,uploaded_by=request.user,name=uploaded.name[:255],rows=len(parsed),accepted_rows=len(accepted),duplicate_rows=len(parsed)-len(accepted))
     messages.success(request,f"Import: {len(accepted)} neue Positionen, {len(parsed)-len(accepted)} Dubletten automatisch ausgeschlossen.")
     return redirect("dashboard")
