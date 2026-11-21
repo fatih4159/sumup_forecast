@@ -42,6 +42,9 @@ def register_view(request):
         except ValidationError as exc:
             valid_password=False
             messages.error(request," ".join(exc.messages))
+        if not re.fullmatch(r"[\\w.@+-]{1,150}",username,re.UNICODE):
+            messages.error(request,"Ungültiger Benutzername.")
+            return render(request,"auth.html",{"mode":"register"})
         if not username or not name or not valid_password:
             messages.error(request,"Bitte gültigen Benutzernamen, Unternehmensnamen und Passwort angeben.")
         elif User.objects.filter(username=username).exists():
@@ -65,8 +68,8 @@ def logout_view(request):
 
 @login_required
 def dashboard(request):
-    try:tenant,member,memberships=active_tenant(request)
-    except Exception:return redirect("create_tenant")
+    if not Membership.objects.filter(user=request.user).exists():return redirect("create_tenant")
+    tenant,member,memberships=active_tenant(request)
     result=series(tenant)
     settings,_=Settings.objects.get_or_create(tenant=tenant,defaults={"values":defaults()})
     return render(request,"dashboard.html",{"tenant":tenant,"member":member,"memberships":memberships,"data":result,"settings":{**defaults(),**settings.values},"imports":tenant.imports.all()[:10]})
