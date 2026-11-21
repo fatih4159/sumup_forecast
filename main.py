@@ -682,7 +682,55 @@ class Main(QMainWindow):
         note.setObjectName('infoLabel');note.setWordWrap(True);layout.addWidget(note)
         apply=QPushButton('Änderungen anwenden & neu berechnen');apply.setObjectName('primaryButton')
         apply.clicked.connect(self.calculate);layout.addWidget(apply);v.addWidget(f)
+        reset=QPushButton('Auf Standardwerte zurücksetzen')
+        reset.setObjectName('secondaryButton')
+        reset.setToolTip('Setzt alle Prognose- und Filtereinstellungen zurück. Die importierten Verkaufsdaten bleiben erhalten.')
+        reset.clicked.connect(self.reset_defaults)
+        layout.addWidget(reset)
         v.addStretch();page.setWidget(body);self.stack.addWidget(page)
+
+    def reset_defaults(self):
+        answer=QMessageBox.question(
+            self,'Standardeinstellungen wiederherstellen',
+            'Alle Prognose-, Filter-, Wachstums- und Umsatzziel-Einstellungen auf die Standardwerte zurücksetzen?\\n'
+            'Der geladene Verkaufsbericht bleibt erhalten.',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel)
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        defaults=[
+            (self.horizon,16),
+            (self.ignore_ff001,True),
+            (self.growth_mode,0),
+            (self.assumed_growth,1.5),
+            (self.saturation,16),
+            (self.ceiling,160),
+            (self.history_only,False),
+            (self.target_enabled,False),
+            (self.target_value,1500.),
+            (self.params['ferien'],-12.),
+            (self.params['feiertag'],-18.),
+            (self.params['markt'],12.),
+            (self.params['pendler'],8.),
+        ]
+        for widget,value in defaults:
+            previous=widget.blockSignals(True)
+            try:
+                if isinstance(widget,QCheckBox):
+                    widget.setChecked(value)
+                elif isinstance(widget,QComboBox):
+                    widget.setCurrentIndex(value)
+                else:
+                    widget.setValue(value)
+            finally:
+                widget.blockSignals(previous)
+        self.target_value.setEnabled(False)
+        self.settings.setValue('history_only',False)
+        self.settings.setValue('target_enabled',False)
+        self.settings.setValue('target_value',1500.)
+        self.settings.sync()
+        self.calculate()
+        self.statusBar().showMessage('Standardeinstellungen wiederhergestellt; Verkaufsdaten beibehalten.',7000)
 
     def navigate(self,index):
         self.stack.setCurrentIndex(index)
