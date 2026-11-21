@@ -7,15 +7,13 @@ def health():
     return {"status":"ok"}
 
 def _read(request):
-    from .context import active_tenant
-    from .services import series
-    from django.contrib.auth.models import AnonymousUser
-    user=request.scope.get("user")
+        from .services import series
     # Django sessions do not propagate through the mounted FastAPI ASGI application.
     # Authenticate through Django's signed session middleware instead.
     from django.contrib.sessions.backends.db import SessionStore
     from django.contrib.auth import get_user_model
     from django.conf import settings
+    from django.contrib.auth import BACKEND_SESSION_KEY
     session_key=request.cookies.get(settings.SESSION_COOKIE_NAME)
     if not session_key:return None
     session=SessionStore(session_key=session_key)
