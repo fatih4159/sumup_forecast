@@ -36,4 +36,4 @@ class SaleRow(models.Model):
     created_at=models.DateTimeField(auto_now_add=True)
     class Meta:
         constraints=[models.UniqueConstraint(fields=["tenant","fingerprint"],name="unique_tenant_sale_row")]
-        indexes=[models.Index(fields=["tenant","created_at"])]
+        indexes=[models.Index(fields=["tenant","created_at"],name="forecast_sa_tenant__cbe0a1_idx")]
