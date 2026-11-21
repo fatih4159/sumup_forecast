@@ -23,7 +23,17 @@ class DataImport(models.Model):
     tenant=models.ForeignKey(Tenant,on_delete=models.CASCADE,related_name="imports")
     uploaded_by=models.ForeignKey(User,on_delete=models.SET_NULL,null=True)
     name=models.CharField(max_length=255)
-    csv_content=models.BinaryField()
     rows=models.PositiveIntegerField()
+    accepted_rows=models.PositiveIntegerField(default=0)
+    duplicate_rows=models.PositiveIntegerField(default=0)
     uploaded_at=models.DateTimeField(auto_now_add=True)
     class Meta:ordering=["-uploaded_at","-id"]
+
+class SaleRow(models.Model):
+    tenant=models.ForeignKey(Tenant,on_delete=models.CASCADE,related_name="sale_rows")
+    fingerprint=models.CharField(max_length=67)
+    payload=models.JSONField()
+    created_at=models.DateTimeField(auto_now_add=True)
+    class Meta:
+        constraints=[models.UniqueConstraint(fields=["tenant","fingerprint"],name="unique_tenant_sale_row")]
+        indexes=[models.Index(fields=["tenant","created_at"])]
