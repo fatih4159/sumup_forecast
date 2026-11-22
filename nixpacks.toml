@@ -1,0 +1,6 @@
+[phases.setup]
+nixPkgs = ["python312"]
+[phases.install]
+cmds = ["python -m pip install -r requirements-web.txt"]
+[start]
+cmd = "bash ./start-web.sh"
