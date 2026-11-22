@@ -153,7 +153,7 @@ def import_csv(request):
         if not parsed:raise ValueError("Leere CSV")
         checked=load_csv(io.StringIO(text))
         if len(parsed)!=len(checked):raise ValueError("Ungültige Zeilen")
-    except (UnicodeError,ValueError,csv.Error) as exc:
+    except (UnicodeError,ValueError,csv.Error,KeyError,TypeError) as exc:
         messages.error(request,f"Import fehlgeschlagen: {exc}")
         return redirect("dashboard")
     with transaction.atomic():
